@@ -19,6 +19,4 @@ server_scripts {
 
 dependencies {
     'qb-core',
-    -- 'qb-target',  -- uncomment if you are using qb-target
-    'ox_target'   -- comment if you are using ox_target
 }
