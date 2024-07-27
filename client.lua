@@ -1,41 +1,19 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+-- client/main.lua
 local spawnedMoney = {}
 
--- Function to spawn money
-function spawnMoney()
+RegisterNetEvent('tropic-randommoney:notifyMoneySpawned')
+AddEventHandler('tropic-randommoney:notifyMoneySpawned', function(moneyData)
     local playerPed = PlayerPedId()
-    if IsPedOnFoot(playerPed) then
-        local playerCoords = GetEntityCoords(playerPed)
-        local moneyCoords = vector3(playerCoords.x + math.random(-5, 5), playerCoords.y + math.random(-5, 5), playerCoords.z)
-        local moneyAmount = math.random(Config.MinMoney, Config.MaxMoney)
+    local moneyCoords = vector3(moneyData.x, moneyData.y, moneyData.z)
+    local entityID = NetworkGetEntityFromNetworkId(moneyData.entityID)
 
-        TriggerEvent('QBCore:Notify', "You found money on the ground! Pick it up before it blows away", 'success', 5000)
+    TriggerEvent('QBCore:Notify', "You found money on the ground! Pick it up before it blows away!", 'success', 5000)
 
-        -- Creating the money object
-        local moneyObject = CreateObject(GetHashKey('prop_cash_pile_01'), moneyCoords.x, moneyCoords.y, moneyCoords.z, true, true, true)
-        PlaceObjectOnGroundProperly(moneyObject)
-
-        table.insert(spawnedMoney, { object = moneyObject, amount = moneyAmount, coords = moneyCoords, time = GetGameTimer() })
-
-        -- Remove the money after the specified time
-        Citizen.SetTimeout(Config.RemoveTime * 1000, function()
-            if DoesEntityExist(moneyObject) then
-                DeleteObject(moneyObject)
-                TriggerEvent('QBCore:Notify', "The money blew away!", 'error', 5000)
-            end
-        end)
-    end
-end
-
--- Function to check for money pickup
-CreateThread(function()
-    while true do
-        Wait(0)
-        local playerPed = PlayerPedId()
-        local playerCoords = GetEntityCoords(playerPed)
-
-        for i, money in ipairs(spawnedMoney) do
-            local moneyCoords = money.coords
+    -- Check for money pickup
+    CreateThread(function()
+        while true do
+            Wait(0)
+            local playerCoords = GetEntityCoords(playerPed)
             local distance = #(playerCoords - moneyCoords)
 
             if distance < 1.5 then
@@ -48,13 +26,18 @@ CreateThread(function()
                     ClearPedTasks(playerPed)
 
                     -- Pickup the money
-                    TriggerServerEvent('tropic-moneyspawn:pickupMoney', money.amount)
-                    DeleteObject(money.object)
-                    table.remove(spawnedMoney, i)
-                    TriggerEvent('QBCore:Notify', string.format(Config.PickupNotification, money.amount), 'success', 5000)
+                    TriggerServerEvent('tropic-moneyspawn:pickupMoney', moneyData.entityID)
+                    return
                 end
             end
         end
+    end)
+end)
+
+RegisterNetEvent('tropic-randommoney:removeMoney')
+AddEventHandler('tropic-randommoney:removeMoney', function(entityID)
+    if DoesEntityExist(NetworkGetEntityFromNetworkId(entityID)) then
+        DeleteObject(NetworkGetEntityFromNetworkId(entityID))
     end
 end)
 
@@ -71,6 +54,21 @@ function DrawText3Ds(x, y, z, text)
     DrawText(_x, _y)
     local factor = (string.len(text)) / 370
     DrawRect(_x, _y + 0.0150, 0.015 + factor, 0.03, 0, 0, 0, 75)
+end
+
+-- Function to spawn money client-side
+function spawnMoney()
+    local playerPed = PlayerPedId()
+    if IsPedOnFoot(playerPed) then
+        local playerCoords = GetEntityCoords(playerPed)
+        local moneyCoords = vector3(playerCoords.x + math.random(-5, 5), playerCoords.y + math.random(-5, 5), playerCoords.z)
+        local moneyObject = CreateObject(GetHashKey('prop_cash_pile_01'), moneyCoords.x, moneyCoords.y, moneyCoords.z, true, true, true)
+        PlaceObjectOnGroundProperly(moneyObject)
+
+        local entityID = NetworkGetNetworkIdFromEntity(moneyObject)
+
+        TriggerServerEvent('tropic-moneyspawn:registerMoney', entityID, moneyCoords)
+    end
 end
 
 -- Money spawn interval
