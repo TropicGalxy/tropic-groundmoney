@@ -9,6 +9,3 @@ Config.SpawnInterval = 1800
 
 -- Time before the money is removed (in seconds)
 Config.RemoveTime = 600
-
--- Target settings
-Config.Target = "ox" -- Set to "ox" or "qb"
